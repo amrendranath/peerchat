@@ -34,20 +34,61 @@ let constraints = {
   audio: true,
 };
 
-let init = async () => {
-  client = await AgoraRTM.createInstance(APP_ID);
-  await client.login({ uid, token });
+const init = async () => {
+  try {
+    client = await AgoraRTM.createInstance(APP_ID);
+    await client.login({ uid, token });
 
-  channel = client.createChannel(roomId);
-  await channel.join();
+    channel = client.createChannel(roomId);
+    await channel.join();
 
-  channel.on("MemberJoined", handleUserJoined);
-  channel.on("MemberLeft", handleUserLeft);
+    channel.on("MemberJoined", handleUserJoined);
+    channel.on("MemberLeft", handleUserLeft);
 
-  client.on("MessageFromPeer", handleMessageFromPeer);
+    client.on("MessageFromPeer", handleMessageFromPeer);
 
-  localStream = await navigator.mediaDevices.getUserMedia(constraints);
-  document.getElementById("user-1").srcObject = localStream;
+    // Polyfill for getUserMedia
+    navigator.getUserMedia =
+      navigator.getUserMedia ||
+      navigator.webkitGetUserMedia ||
+      navigator.mozGetUserMedia ||
+      navigator.msGetUserMedia;
+
+    // Check if the modern mediaDevices API is supported
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      try {
+        const constraints = {
+          video: true,
+          audio: true,
+        };
+        const localStream = await navigator.mediaDevices.getUserMedia(
+          constraints
+        );
+        document.getElementById("user-1").srcObject = localStream;
+      } catch (mediaError) {
+        console.error("Error accessing media devices.", mediaError);
+      }
+    } else if (navigator.getUserMedia) {
+      // Fallback to the older getUserMedia API
+      const constraints = {
+        video: true,
+        audio: true,
+      };
+      navigator.getUserMedia(
+        constraints,
+        (stream) => {
+          document.getElementById("user-1").srcObject = stream;
+        },
+        (mediaError) => {
+          console.error("Error accessing media devices.", mediaError);
+        }
+      );
+    } else {
+      alert("getUserMedia is not supported in this browser.");
+    }
+  } catch (error) {
+    console.error("Error during initialization:", error);
+  }
 };
 
 let handleUserLeft = (MemberId) => {
